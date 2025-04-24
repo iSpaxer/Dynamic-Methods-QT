@@ -1,18 +1,28 @@
 #include "dynamicobject.h"
 #include "qdebug.h"
 #include <QCoreApplication>
-#include <QMetaObject>
 
 int main(int argc, char *argv[]) {
   QCoreApplication a(argc, argv);
 
   DynamicObject obj;
 
-  bool ok = QMetaObject::invokeMethod(&obj, "sayHello", Q_ARG(QString, "Мир"));
+  // Пробуем вызвать встроенный слот
+  QMetaObject::invokeMethod(obj.impl(), "printMessage",
+                            Q_ARG(QString, "Привет от обычного слота!"));
 
-  if (!ok) {
-    qDebug() << "Не удалось вызвать метод";
-  }
+  // Пробуем динамический
+  QMetaObject::invokeMethod(&obj, "dynamicHello",
+                            Q_ARG(QString, "Привет от динамики!"));
+
+  // Пробуем сигнал и слот
+  QObject::connect(obj.impl(), &InnerObject::somethingHappened,
+                   [](const QString &msg) {
+                     qDebug() << "Слот на сигнал что-то получил:" << msg;
+                   });
+
+  // вызовем слот, он эмиттит сигнал
+  obj.impl()->printMessage("И сигнал сработал");
 
   return a.exec();
 }

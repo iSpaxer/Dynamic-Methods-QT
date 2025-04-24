@@ -9,10 +9,21 @@
 
 #pragma once
 
-#include <QMetaObject>
 #include <QObject>
 #include <QVector>
 #include <functional>
+
+class InnerObject : public QObject {
+  Q_OBJECT
+public:
+  using QObject::QObject;
+
+signals:
+  void somethingHappened(QString message);
+
+public slots:
+  void printMessage(QString msg);
+};
 
 class DynamicObject : public QObject {
 public:
@@ -21,10 +32,14 @@ public:
   const QMetaObject *metaObject() const override;
   int qt_metacall(QMetaObject::Call call, int id, void **args) override;
 
-private:
-  QVector<std::function<void(void **)>> methodCallbacks;
-  const QMetaObject *dynamicMetaObject = nullptr;
+  // Доступ к сигналам
+  InnerObject *impl() const { return _impl; }
 
-  void initMetaObject();
+private:
+  void initMeta();
+
+  QVector<std::function<void(void **)>> methodCallbacks;
+  const QMetaObject *dynamicMeta = nullptr;
+  InnerObject *_impl;
 };
 #endif // DYNAMICOBJECT_H

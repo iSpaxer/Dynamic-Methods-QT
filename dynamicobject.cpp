@@ -3,35 +3,46 @@
 #include "dynamicobject.h"
 #include <QDebug>
 
-DynamicObject::DynamicObject(QObject *parent) : QObject(parent) {
-  initMetaObject();
+void InnerObject::printMessage(QString msg) {
+  qDebug() << "Слот printMessage получил:" << msg;
+  emit somethingHappened(msg);
 }
 
-void DynamicObject::initMetaObject() {
+DynamicObject::DynamicObject(QObject *parent)
+    : QObject(parent), _impl(new InnerObject(this)) {
+  initMeta();
+}
+
+void DynamicObject::initMeta() {
   QMetaObjectBuilder builder;
   builder.setClassName("DynamicObject");
   builder.setSuperClass(&QObject::staticMetaObject);
 
-  // Добавим метод sayHello(QString)
-  builder.addMethod("sayHello(QString)");
+  builder.addSlot("dynamicHello(QString)");
   methodCallbacks.append([](void **args) {
     QString arg = *reinterpret_cast<QString *>(args[1]);
-    qDebug() << "Привет из динамического слота:" << arg;
+    qDebug() << "Dynamic слот вызван с аргументом:" << arg;
   });
 
-  dynamicMetaObject = builder.toMetaObject();
+  dynamicMeta = builder.toMetaObject();
 }
 
 const QMetaObject *DynamicObject::metaObject() const {
-  return dynamicMetaObject ? dynamicMetaObject : QObject::metaObject();
+  return dynamicMeta ? dynamicMeta : QObject::metaObject();
 }
 
 int DynamicObject::qt_metacall(QMetaObject::Call call, int id, void **args) {
-  id = QObject::qt_metacall(call, id, args);
-  if (id < 0 || call != QMetaObject::InvokeMetaMethod)
-    return id;
+  int baseSlots = _impl->metaObject()->methodCount() -
+                  QObject::staticMetaObject.methodCount();
 
-  if (id < methodCallbacks.size()) {
+  // Делегируем в _impl
+  if (id < baseSlots) {
+    return _impl->qt_metacall(call, id, args);
+  }
+
+  id -= baseSlots;
+
+  if (call == QMetaObject::InvokeMetaMethod && id < methodCallbacks.size()) {
     methodCallbacks[id](args);
     return -1;
   }
