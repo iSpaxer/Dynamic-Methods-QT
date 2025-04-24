@@ -31,21 +31,18 @@ const QMetaObject *DynamicObject::metaObject() const {
   return dynamicMeta ? dynamicMeta : QObject::metaObject();
 }
 
+
 int DynamicObject::qt_metacall(QMetaObject::Call call, int id, void **args) {
-  int baseSlots = _impl->metaObject()->methodCount() -
-                  QObject::staticMetaObject.methodCount();
+    // Обработаем методы через динамический metaObject
+    id = QObject::qt_metacall(call, id, args);
 
-  // Делегируем в _impl
-  if (id < baseSlots) {
-    return _impl->qt_metacall(call, id, args);
-  }
+    if (id < 0 || call != QMetaObject::InvokeMetaMethod)
+        return id;
 
-  id -= baseSlots;
+    if (id < methodCallbacks.size()) {
+        methodCallbacks[id](args);
+        return -1;
+    }
 
-  if (call == QMetaObject::InvokeMetaMethod && id < methodCallbacks.size()) {
-    methodCallbacks[id](args);
-    return -1;
-  }
-
-  return id;
+    return id;
 }
